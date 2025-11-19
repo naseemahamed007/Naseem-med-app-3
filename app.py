@@ -284,6 +284,6 @@ if st.button("📊 Generate Report", key='gen'):
 
 # ---------------- If user opens without generating ----------------
 else:
-    st.info('Enter values and press "Generate Epic Report" to see a professional summary with visuals.')
+    st.info('Enter values and press "Generate Report" to see a professional summary with visuals.')
 
 # ---------------- END ----------------
