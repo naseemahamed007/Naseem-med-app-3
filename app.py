@@ -230,7 +230,7 @@ if st.button("📊 Generate Report", key='gen'):
             st.write(PROFESSIONAL_ADVICE[bp_cat]['tablet'])
 
         # Sugar advice
-        with st.expander("🔹 Glucose — Detailed advice", expanded=False):
+        with st.expander("🔹 Fasting Blood Glucose: — Detailed advice", expanded=False):
             sstatus, scls = RISK_STATUS[sugar_cat]
             st.markdown(f"<div class='card'><b>Fasting:</b> {sugar_score} — <b>{sugar_cat}</b> &nbsp; {badge_html(sstatus, scls)}</div>", unsafe_allow_html=True)
             st.write(PROFESSIONAL_ADVICE[sugar_cat]['remedy'])
