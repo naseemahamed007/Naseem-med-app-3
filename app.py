@@ -1,43 +1,80 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
 from datetime import datetime
-import io
 
 # ---------------- Page config ----------------
 st.set_page_config(
-    page_title="Naseem's Med App — Pro Suite",
+    page_title="Naseem's Med App ",
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ---------------- Epic CSS ----------------
+# ---------------- CSS / Theme (epic neon glass) ----------------
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
-    html, body, .stApp { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto; }
-    .bg-glow { background: radial-gradient(1200px 600px at 10% 10%, rgba(60,140,255,0.06), transparent 8%), radial-gradient(1000px 500px at 90% 90%, rgba(58,200,160,0.03), transparent 12%); }
-    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-radius:12px; background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.04); box-shadow: 0 8px 30px rgba(2,8,23,0.45); }
-    .brand { font-weight:800; font-size:20px; color: #DDF6FF }
-    .subtitle { color:#9FD6FF; font-size:13px }
-    .card { border-radius:12px; padding:14px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(127,199,255,0.06); box-shadow: 0 8px 24px rgba(2,8,23,0.45); }
-    .metric { font-weight:800; font-size:18px }
-    .muted { color:#9FBFD8 }
-    .btn-primary { padding:8px 14px; border-radius:10px; background:linear-gradient(90deg,#2CB7FF,#6A78FF); color:white; font-weight:700; }
-    .small { font-size:13px; color:#9FBFD8 }
-    .danger { color:#FF2E63; font-weight:800 }
-    .good { color:#0FC57F; font-weight:800 }
-    .kpi { display:flex; gap:10px; }
-    .kpi .card { flex:1 }
-    .table-wrap { max-height:360px; overflow:auto }
+    /* background gradient + subtle animation */
+    @keyframes floatBG { 0% {background-position:0% 50%} 50% {background-position:100% 50%} 100% {background-position:0% 50%} }
+    html, body, .stApp {
+        height:100%;
+        background: linear-gradient(120deg, #071428 0%, #042A3A 35%, #071428 100%);
+        background-size: 200% 200%;
+        animation: floatBG 20s ease infinite;
+        color: #EAF6FF;
+        font-family: 'Segoe UI', Roboto, -apple-system, 'Helvetica Neue', Arial;
+    }
+
+    /* top hero */
+    .hero {
+        background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.03));
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 8px 30px rgba(2,8,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+        backdrop-filter: blur(6px) saturate(140%);
+        margin-bottom: 18px;
+        border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .brand { font-size:22px; font-weight:700; letter-spacing:0.4px; }
+    .tag { color:#9FD6FF; font-size:13px; }
+
+    /* neon cards */
+    .card {
+        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 12px;
+        border: 1px solid rgba(127,199,255,0.06);
+        box-shadow: 0 6px 18px rgba(2,8,23,0.5);
+    }
+
+    .big-metric { font-size:20px; font-weight:800; }
+    .muted { color: #9FBFD8; }
+
+    /* badges */
+    .badge-good { color: #0FC57F; font-weight:800; padding:4px 8px; border-radius:8px; background: rgba(15,197,127,0.06); }
+    .badge-warn { color: #FFB020; font-weight:800; padding:4px 8px; border-radius:8px; background: rgba(255,176,32,0.06); }
+    .badge-bad { color: #FF6B6B; font-weight:800; padding:4px 8px; border-radius:8px; background: rgba(255,107,107,0.04); }
+    .badge-crit { color: #FF2E63; font-weight:900; padding:4px 8px; border-radius:8px; background: rgba(255,46,99,0.06); }
+
+    /* subtle animated glow for CTA */
+    .cta {
+        padding:10px 18px; border-radius: 12px; font-weight:700; background: linear-gradient(90deg,#2CB7FF, #6A78FF); color: white; border:none; box-shadow: 0 6px 26px rgba(58,110,255,0.18);
+    }
+
+    .footer { font-size:12px; color:#9FBFD8 }
+
+    /* responsive small screens */
+    @media (max-width: 600px) {
+        .brand { font-size:18px; }
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# ---------------- Utilities ----------------
-
+# ---------------- Helper dictionaries (kept concise) ----------------
 PROFESSIONAL_ADVICE = {
     'Underweight': {'remedy': 'High-calorie nutrient-dense diet + progressive resistance training.', 'physical': '5–6 meals/day, protein shakes, 3×/week strength training.', 'tablet': 'Assess clinically; supplements/prn under MD.'},
     'Normal weight': {'remedy': 'Maintain balanced intake and regular activity.', 'physical': '150 min/wk moderate activity.', 'tablet': 'Routine monitoring.'},
@@ -66,7 +103,7 @@ RISK_STATUS = {
     'Diabetes': ('CRITICAL','badge-crit')
 }
 
-# BMI/bp/sugar helpers
+# ---------------- Utility functions ----------------
 
 def calculate_bmi(weight_kg, height_cm):
     h_m = height_cm / 100.0
@@ -108,226 +145,145 @@ def get_sugar_category(fasting_mgdl):
 def badge_html(text, cls):
     return f"<span class='{cls}' style='font-size:13px;padding:4px 8px;border-radius:8px'>{text}</span>"
 
-# ---------------- State & persistence helpers ----------------
-
-STORAGE_KEY = 'naseem_med_history'
-
-if STORAGE_KEY not in st.session_state:
-    st.session_state[STORAGE_KEY] = pd.DataFrame(columns=['timestamp','name','age','sex','height_cm','weight_kg','bmi','bmi_cat','systolic','diastolic','bp_cat','fasting','sugar_cat','activity'])
-
-
-def add_record(record: dict):
-    df = st.session_state[STORAGE_KEY]
-    df = pd.concat([df, pd.DataFrame([record])], ignore_index=True)
-    st.session_state[STORAGE_KEY] = df
-
-
-def download_df_as_csv(df: pd.DataFrame, filename='naseem_med_history.csv'):
-    buffer = io.StringIO()
-    df.to_csv(buffer, index=False)
-    return buffer.getvalue().encode('utf-8')
-
-# ---------------- Sidebar navigation ----------------
+# ---------------- Sidebar: user info & quick actions ----------------
 with st.sidebar:
-    st.markdown("<div class='brand'>🩺 Naseem Med — Pro Suite</div><div class='subtitle small'>Advanced clinical UI • Multi-page</div>", unsafe_allow_html=True)
-    st.markdown('---')
-    page = st.radio('Navigation', ['Dashboard','History','Assessments','Settings'])
-    st.markdown('---')
-    st.markdown('<div class="small muted">Quick Controls</div>', unsafe_allow_html=True)
-    if st.button('➕ New blank record'):
-        # clear inputs by rerunning with minimal effect
-        for k in ['_tmp_clear']: st.session_state[k] = True
+    st.markdown("<div style='text-align:center'><h3 class='brand'>🩺 Razeena Med </h3><div class='tag'>Futuristic clinical assistant</div></div>", unsafe_allow_html=True)
+    st.markdown("---")
+
+    name = st.text_input("Patient name", value="-")
+    age = st.number_input("Age (years)", min_value=0, max_value=120, value=25)
+    sex = st.selectbox("Gender", ['Male','Female','Other'])
+    contact = st.text_input("Contact / ID (optional)")
+
+    st.markdown("---")
+    st.markdown("<div class='muted'>Quick actions</div>", unsafe_allow_html=True)
+    if st.button("📄 Export summary (copy) "):
+        st.experimental_set_query_params(last_export=datetime.utcnow().isoformat())
+        st.success("Summary state captured — use copy from UI (or implement cookie export).")
+    if st.button("🎯 Reset inputs"):
         st.experimental_rerun()
-    st.markdown('---')
-    st.markdown('<div class="small muted">Data Storage</div>', unsafe_allow_html=True)
-    uploaded = st.file_uploader('Upload history CSV (optional)', type=['csv'])
-    if uploaded is not None:
-        try:
-            df_u = pd.read_csv(uploaded)
-            st.session_state[STORAGE_KEY] = df_u
-            st.success('Uploaded history loaded')
-        except Exception as e:
-            st.error('Failed to load CSV: '+str(e))
 
-# ---------------- Pages ----------------
+    st.markdown("---")
+    st.markdown("<div class='muted footer'>Built for demo • Not a diagnostic tool</div>", unsafe_allow_html=True)
 
-# --- DASHBOARD ---
-if page == 'Dashboard':
-    st.markdown("<div class='topbar bg-glow'><div><div class='brand'>Naseem's Medical — Pro Suite</div><div class='subtitle'>Interactive clinical summary • Advanced visuals</div></div><div class='small muted'>Last updated: " + datetime.now().strftime('%Y-%m-%d %H:%M') + "</div></div>", unsafe_allow_html=True)
+# ---------------- Main UI ----------------
 
-    st.markdown('## Enter patient data')
-    c1, c2, c3 = st.columns([1,1,1])
-    with c1:
-        name = st.text_input('Patient name', value='Anonymous')
-        age = st.number_input('Age', min_value=0, max_value=120, value=25)
-        sex = st.selectbox('Sex', ['Male','Female','Other'])
-    with c2:
-        height = st.number_input('Height (cm)', min_value=50, max_value=230, value=170)
-        weight = st.number_input('Weight (kg)', min_value=1, max_value=300, value=70)
-    with c3:
-        systolic = st.number_input('Systolic (mmHg)', min_value=50, max_value=250, value=120)
-        diastolic = st.number_input('Diastolic (mmHg)', min_value=30, max_value=150, value=80)
-        fasting = st.number_input('Fasting glucose (mg/dL)', min_value=40, max_value=600, value=90)
-        activity = st.selectbox('Activity', ['Sedentary','Light','Moderate','Very Active'])
+st.markdown("<div class='hero'> <div style='display:flex;align-items:center;justify-content:space-between'> <div><div class='brand'>Naseem's Medical App </div><div class='tag'>Interactive clinical summary • Visual & professional</div></div><div style='text-align:right'><div class='muted'>Logged: " + datetime.now().strftime('%Y-%m-%d %H:%M') + "</div></div></div></div>", unsafe_allow_html=True)
 
-    st.markdown('---')
-    gen_col, spacer = st.columns([1,3])
-    with gen_col:
-        if st.button('📊 Generate full report'):
-            bmi_val, bmi_cat = calculate_bmi(weight, height)
-            bp_score, bp_cat = get_bp_category(systolic, diastolic)
-            sugar_score, sugar_cat = get_sugar_category(fasting)
+# Input area
+st.markdown("## 🔎 Enter clinical values")
+col1, col2, col3 = st.columns([1,1,1])
+with col1:
+    height = st.number_input("Height (cm)", min_value=50, max_value=230, value=170)
+    weight = st.number_input("Weight (kg)", min_value=1, max_value=300, value=70)
+with col2:
+    systolic = st.number_input("Systolic BP (mmHg)", min_value=50, max_value=250, value=120)
+    diastolic = st.number_input("Diastolic BP (mmHg)", min_value=30, max_value=150, value=80)
+with col3:
+    fasting = st.number_input("Fasting Blood Sugar (mg/dL)", min_value=40, max_value=600, value=90)
+    activity = st.selectbox("Activity level (typical)", ['Sedentary','Light','Moderate','Very Active'])
 
-            # save record
-            rec = {
-                'timestamp': datetime.utcnow().isoformat(),
-                'name': name, 'age': age, 'sex': sex, 'height_cm': height, 'weight_kg': weight,
-                'bmi': bmi_val, 'bmi_cat': bmi_cat, 'systolic': systolic, 'diastolic': diastolic, 'bp_cat': bp_cat,
-                'fasting': fasting, 'sugar_cat': sugar_cat, 'activity': activity
-            }
-            add_record(rec)
+st.markdown("---")
 
-            # KPIs
-            st.markdown('<div class="kpi">', unsafe_allow_html=True)
-            k1, k2, k3, k4 = st.columns(4)
-            with k1:
-                st.markdown(f"<div class='card'><div class='muted'>BMI</div><div class='metric'>{bmi_val} <div class='muted' style='font-weight:600'>{bmi_cat}</div></div></div>", unsafe_allow_html=True)
-            with k2:
-                st.markdown(f"<div class='card'><div class='muted'>Blood Pressure</div><div class='metric'>{bp_score} <div class='muted' style='font-weight:600'>{bp_cat}</div></div></div>", unsafe_allow_html=True)
-            with k3:
-                st.markdown(f"<div class='card'><div class='muted'>Fasting Glucose</div><div class='metric'>{sugar_score} <div class='muted' style='font-weight:600'>{sugar_cat}</div></div></div>", unsafe_allow_html=True)
-            with k4:
-                immediate = any([RISK_STATUS[bmi_cat][0] in ('CRITICAL','BAD'), RISK_STATUS[bp_cat][0] in ('CRITICAL','BAD'), RISK_STATUS[sugar_cat][0] in ('CRITICAL','BAD')])
-                level = 'ATTENTION' if immediate else 'OK'
-                cls = 'danger' if immediate else 'good'
-                st.markdown(f"<div class='card'><div class='muted'>Quick Risk</div><div class='metric {cls}' style='font-size:18px'>{level}</div></div>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+# Generate button with animation-like UX
+if st.button("📊 Generate Report", key='gen'):
+    bmi_val, bmi_cat = calculate_bmi(weight, height)
+    bp_score, bp_cat = get_bp_category(systolic, diastolic)
+    sugar_score, sugar_cat = get_sugar_category(fasting)
 
-            st.markdown('---')
-            left, right = st.columns([2,1])
-            with left:
-                st.markdown(f"<div class='card'><h3>Clinical Summary — {name}</h3><div class='muted'>Age: {age} • Sex: {sex} • Activity: {activity}</div><hr></div>", unsafe_allow_html=True)
+    # Top metrics
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    with kpi1:
+        st.markdown(f"<div class='card'><div class='muted'>BMI</div><div class='big-metric'>{bmi_val} <span class='muted'>({bmi_cat})</span></div></div>", unsafe_allow_html=True)
+    with kpi2:
+        st.markdown(f"<div class='card'><div class='muted'>Blood Pressure</div><div class='big-metric'>{bp_score} <span class='muted'>({bp_cat})</span></div></div>", unsafe_allow_html=True)
+    with kpi3:
+        st.markdown(f"<div class='card'><div class='muted'>Fasting Glucose</div><div class='big-metric'>{sugar_score} <span class='muted'>({sugar_cat})</span></div></div>", unsafe_allow_html=True)
+    with kpi4:
+        risk_level = RISK_STATUS[bmi_cat][0]
+        st.markdown(f"<div class='card'><div class='muted'>Overall quick risk</div><div class='big-metric'>{risk_level}</div></div>", unsafe_allow_html=True)
 
-                with st.expander('BMI — detailed'):
-                    bstatus, bcls = RISK_STATUS[bmi_cat]
-                    st.markdown(f"<div class='card'><b>BMI:</b> {bmi_val} — <b>{bmi_cat}</b> &nbsp; {badge_html(bstatus, bcls)}</div>", unsafe_allow_html=True)
-                    st.write(PROFESSIONAL_ADVICE[bmi_cat]['remedy'])
-                    st.write(PROFESSIONAL_ADVICE[bmi_cat]['physical'])
-                    st.write(PROFESSIONAL_ADVICE[bmi_cat]['tablet'])
+    st.markdown("---")
 
-                with st.expander('Blood Pressure — detailed'):
-                    pstatus, pcls = RISK_STATUS[bp_cat]
-                    st.markdown(f"<div class='card'><b>BP:</b> {bp_score} — <b>{bp_cat}</b> &nbsp; {badge_html(pstatus, pcls)}</div>", unsafe_allow_html=True)
-                    st.write(PROFESSIONAL_ADVICE[bp_cat]['remedy'])
-                    st.write(PROFESSIONAL_ADVICE[bp_cat]['physical'])
-                    st.write(PROFESSIONAL_ADVICE[bp_cat]['tablet'])
+    # Detailed cards
+    left, right = st.columns([2,1])
+    with left:
+        st.markdown(f"<div class='card'><h3>Clinical Summary — {name}</h3><div class='muted'>Age: {age} • Sex: {sex} • Activity: {activity}</div><hr></div>", unsafe_allow_html=True)
 
-                with st.expander('Glucose — detailed'):
-                    sstatus, scls = RISK_STATUS[sugar_cat]
-                    st.markdown(f"<div class='card'><b>Fasting:</b> {sugar_score} — <b>{sugar_cat}</b> &nbsp; {badge_html(sstatus, scls)}</div>", unsafe_allow_html=True)
-                    st.write(PROFESSIONAL_ADVICE[sugar_cat]['remedy'])
-                    st.write(PROFESSIONAL_ADVICE[sugar_cat]['physical'])
-                    st.write(PROFESSIONAL_ADVICE[sugar_cat]['tablet'])
+        # BMI advice expander
+        with st.expander("🔹 BMI — Detailed advice", expanded=True):
+            bstatus, bcls = RISK_STATUS[bmi_cat]
+            st.markdown(f"<div class='card'><b>BMI:</b> {bmi_val} — <b>{bmi_cat}</b> &nbsp; {badge_html(bstatus, bcls)}</div>", unsafe_allow_html=True)
+            st.markdown("**Lifestyle / Dietary Remedy:**")
+            st.write(PROFESSIONAL_ADVICE[bmi_cat]['remedy'])
+            st.markdown("**Physical / Behavioural:**")
+            st.write(PROFESSIONAL_ADVICE[bmi_cat]['physical'])
+            st.markdown("**Medical note:**")
+            st.write(PROFESSIONAL_ADVICE[bmi_cat]['tablet'])
 
-            with right:
-                # interactive plotly BMI trend using session history
-                df = st.session_state[STORAGE_KEY]
-                if not df.empty:
-                    df_plot = df.copy()
-                    df_plot['ts'] = pd.to_datetime(df_plot['timestamp'])
-                    df_plot = df_plot.sort_values('ts')
-                    fig = px.line(df_plot, x='ts', y='bmi', title='BMI over time', markers=True)
-                    fig.update_layout(margin=dict(l=0,r=0,t=30,b=0), height=300)
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info('No history yet — results will show here after you generate.')
+        # BP advice expander
+        with st.expander("🔹 Blood Pressure — Detailed advice", expanded=False):
+            pstatus, pcls = RISK_STATUS[bp_cat]
+            st.markdown(f"<div class='card'><b>BP:</b> {bp_score} — <b>{bp_cat}</b> &nbsp; {badge_html(pstatus, pcls)}</div>", unsafe_allow_html=True)
+            st.write(PROFESSIONAL_ADVICE[bp_cat]['remedy'])
+            st.write(PROFESSIONAL_ADVICE[bp_cat]['physical'])
+            st.write(PROFESSIONAL_ADVICE[bp_cat]['tablet'])
 
-                st.markdown('<div class="card"><h4>Quick Vitals</h4><div class="muted">Systolic</div><div class="metric">' + str(systolic) + ' mmHg</div><div class="muted">Diastolic</div><div class="metric">' + str(diastolic) + ' mmHg</div></div>', unsafe_allow_html=True)
+        # Sugar advice
+        with st.expander("🔹 Glucose — Detailed advice", expanded=False):
+            sstatus, scls = RISK_STATUS[sugar_cat]
+            st.markdown(f"<div class='card'><b>Fasting:</b> {sugar_score} — <b>{sugar_cat}</b> &nbsp; {badge_html(sstatus, scls)}</div>", unsafe_allow_html=True)
+            st.write(PROFESSIONAL_ADVICE[sugar_cat]['remedy'])
+            st.write(PROFESSIONAL_ADVICE[sugar_cat]['physical'])
+            st.write(PROFESSIONAL_ADVICE[sugar_cat]['tablet'])
 
-            # share / export
-            st.markdown('---')
-            coldl, coldr = st.columns([1,1])
-            with coldl:
-                csv_bytes = download_df_as_csv(st.session_state[STORAGE_KEY])
-                st.download_button('📥 Download history CSV', data=csv_bytes, file_name='naseem_med_history.csv', mime='text/csv')
-            with coldr:
-                st.button('📋 Copy short summary')
+        # Actionable steps
+        st.markdown("<div class='card'><h4>Actionable Next Steps</h4><ul><li>If any category is <b>CRITICAL / BAD</b>, contact a physician immediately.</li><li>Start lifestyle steps: walk, manage diet, log BP/glucose for 1–2 weeks.</li><li>Share this summary with your clinician.</li></ul></div>", unsafe_allow_html=True)
 
-# --- HISTORY ---
-elif page == 'History':
-    st.markdown('<div class="topbar"><div class="brand">History</div><div class="small muted">Stored readings</div></div>', unsafe_allow_html=True)
-    df = st.session_state[STORAGE_KEY]
-    if df.empty:
-        st.info('No records yet. Generate reports from Dashboard to populate history.')
+    with right:
+        # Small visual: BMI distribution chart simulation
+        st.markdown("<div class='card'><h4>Visuals & Trend</h4>", unsafe_allow_html=True)
+        # simulate a small trend using numpy
+        days = np.arange(-14,1)
+        # create a mock BMI trend moving slightly towards current value
+        bmi_trend = np.clip(bmi_val + 0.2*np.sin(days/3) + np.linspace(-0.5,0,days.size), 12, 45)
+        fig, ax = plt.subplots(figsize=(4,2.2))
+        ax.plot(days, bmi_trend)
+        ax.set_title('BMI')
+        ax.set_xlabel('days')
+        ax.grid(True, alpha=0.2)
+        st.pyplot(fig)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Quick vitals card
+        st.markdown(f"<div class='card'><h4>Quick Vitals</h4><div class='muted'>Systolic</div><div class='big-metric'>{systolic} mmHg</div><div class='muted'>Diastolic</div><div class='big-metric'>{diastolic} mmHg</div></div>", unsafe_allow_html=True)
+
+        # Risk summary
+        st.markdown("<div class='card'><h4>Risk Summary</h4>", unsafe_allow_html=True)
+        for cat in [bmi_cat, bp_cat, sugar_cat]:
+            status, cls = RISK_STATUS[cat]
+            st.markdown(f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'><div>{cat}</div><div>{badge_html(status, cls)}</div></div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # footer + legal
+    st.markdown("---")
+    st.markdown("<div style='display:flex;justify-content:space-between;align-items:center'><div class='muted small'>Report generated by <b>Naseem Ahamed</b></div><div class='muted small'>Not a diagnostic tool — consult clinician</div></div>", unsafe_allow_html=True)
+
+    # subtle celebration for good results
+    critical_flags = [cat for cat in [bmi_cat, bp_cat, sugar_cat] if RISK_STATUS[cat][0] in ('CRITICAL','BAD')]
+    if len(critical_flags) == 0:
+        st.success('All primary categories are within GOOD/WARNING ranges. Keep it up!')
     else:
-        st.markdown('### All records')
-        with st.expander('Show table', expanded=True):
-            st.dataframe(df.sort_values('timestamp', ascending=False))
-        st.markdown('### Analytics')
-        st.markdown('Visualize trends in BMI, BP and Glucose')
-        cols = st.columns(3)
-        df_plot = df.copy()
-        df_plot['ts'] = pd.to_datetime(df_plot['timestamp'])
-        if not df_plot.empty:
-            with cols[0]:
-                fig = px.line(df_plot, x='ts', y='bmi', title='BMI trend', markers=True)
-                st.plotly_chart(fig, use_container_width=True)
-            with cols[1]:
-                fig2 = px.line(df_plot, x='ts', y='systolic', title='Systolic trend', markers=True)
-                st.plotly_chart(fig2, use_container_width=True)
-            with cols[2]:
-                fig3 = px.line(df_plot, x='ts', y='fasting', title='Fasting glucose', markers=True)
-                st.plotly_chart(fig3, use_container_width=True)
+        st.warning('One or more categories require attention: ' + ', '.join(critical_flags))
 
-        st.markdown('---')
-        if st.button('🗑️ Clear history'):
-            st.session_state[STORAGE_KEY] = pd.DataFrame(columns=st.session_state[STORAGE_KEY].columns)
-            st.success('History cleared')
+    # allow user to copy a sharable summary text
+    if st.button('📋 Copy simple summary'):
+        summary = f"{name} | Age {age} | BMI {bmi_val} ({bmi_cat}) | BP {bp_score} ({bp_cat}) | Fasting {sugar_score} ({sugar_cat})"
+        st.write('Copy the text below and share with your clinician:')
+        st.code(summary)
 
-# --- ASSESSMENTS ---
-elif page == 'Assessments':
-    st.markdown('<div class="topbar"><div class="brand">Assessments</div><div class="subtitle">Quick calculators & printable reports</div></div>', unsafe_allow_html=True)
-    st.markdown('### Quick risk calculators')
-    st.markdown('Use values from last entry or enter new ones')
-    last = st.session_state[STORAGE_KEY].tail(1)
-    if not last.empty:
-        last = last.iloc[0]
-        st.write('Using last record for quick assessment: ', last['name'])
-        st.write('BMI:', last['bmi'], last['bmi_cat'])
-        st.write('BP:', last['systolic'], '/', last['diastolic'], last['bp_cat'])
-    else:
-        st.info('No previous record. Use Dashboard to add one.')
+# ---------------- If user opens without generating ----------------
+else:
+    st.info('Enter values and press "Generate Epic Report" to see a professional summary with visuals.')
 
-    st.markdown('---')
-    st.markdown('### Generate printable summary (PDF/HTML) — lightweight')
-    if st.button('Generate printable HTML summary'):
-        # simple HTML export
-        dfp = st.session_state[STORAGE_KEY].tail(1)
-        if dfp.empty:
-            st.warning('No record to export')
-        else:
-            r = dfp.iloc[0]
-            html = f"""
-            <html><body><h2>Clinical summary — {r['name']}</h2>
-            <p>Age: {r['age']} — BMI: {r['bmi']} ({r['bmi_cat']})</p>
-            <p>BP: {r['systolic']}/{r['diastolic']} — {r['bp_cat']}</p>
-            <p>Fasting: {r['fasting']} — {r['sugar_cat']}</p>
-            <p>Generated: {datetime.utcnow().isoformat()}</p>
-            </body></html>
-            """
-            st.download_button('📄 Download HTML summary', data=html, file_name='summary.html', mime='text/html')
-
-# --- SETTINGS ---
-elif page == 'Settings':
-    st.markdown('<div class="topbar"><div class="brand">Settings</div><div class="subtitle small">Customize app behaviour</div></div>', unsafe_allow_html=True)
-    st.markdown('### Appearance')
-    st.write('You can edit CSS in the code to change colors and fonts.')
-    st.markdown('---')
-    st.markdown('### Developer')
-    st.code('pip install streamlit plotly pandas matplotlib')
-    st.markdown('---')
-    st.markdown('App version: **Pro Suite 1.0**')
-
-# ---------------- Footer ----------------
-st.markdown('<hr>')
-st.markdown("<div style='display:flex;justify-content:space-between'><div class='small muted'>Built by Naseem — For demo & educational use only</div><div class='small muted'>Not a diagnostic tool</div></div>", unsafe_allow_html=True)
+# ---------------- END ----------------
