@@ -147,7 +147,7 @@ def badge_html(text, cls):
 
 # ---------------- Sidebar: user info & quick actions ----------------
 with st.sidebar:
-    st.markdown("<div style='text-align:center'><h3 class='brand'>🩺 Razeena Med </h3><div class='tag'>Futuristic clinical assistant</div></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center'><h3 class='brand'>🩺 Razeena's Medical App </h3><div class='tag'>Futuristic clinical assistant</div></div>", unsafe_allow_html=True)
     st.markdown("---")
 
     name = st.text_input("Patient name", value="-")
